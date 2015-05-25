@@ -13,33 +13,58 @@
  * @constructor
  */
 function GridActually(options) {
-  this.IMAGE_SIZE = 200; // in pixels
+  this.IMAGE_SIZE = 128; // in pixels
   this.BOX_SIZE = 80; // in pixels
-  this.IMAGE_WIDTH = 5400; // in pixels
+  this.IMAGE_WIDTH = 3456; // in pixels
 
-  this.$img = $('.gridactually-image');
-  this.$container = $('<div></div>').addClass('gridactually-container').insertAfter(this.$img);
-  this.$el = $('<div></div>').addClass('gridactually').appendTo(this.$container);
-  this.$overlay = $('<div></div>').addClass('gridactually-overlay').insertAfter(this.$container);
+  this.$img = document.querySelector('.gridactually-image');
+
+  this.$container = document.createElement('div');
+  this.addClass(this.$container, 'gridactually-container');
+  this.$img.insertAdjacentHTML('afterend', this.$container.outerHTML);
+  this.$container = document.querySelector('.gridactually-container');
+
+  this.$el = document.createElement('div');
+  this.addClass(this.$el, 'gridactually');
+  this.$container.appendChild(this.$el);
+  this.$el = document.querySelector('.gridactually');
+
+  this.$overlay = document.createElement('div');
+  this.addClass(this.$overlay, 'gridactually-overlay');
+  this.insertAfter(this.$overlay, this.$container);
+  this.$overlay = document.querySelector('.gridactually-overlay');
 
   /**
    * Number of images in the grid.
    * @type {Number}
    */
   this.imageTotal = Math.floor(this.IMAGE_WIDTH/this.IMAGE_SIZE);
-  this.imageUrl = this.$img.attr('src');
+  this.imageUrl = this.$img.src;
 
   // Instance options
   this.allAtOnce = options ? options.allAtOnce : false;
   this.useFlip = options ? (options.useFlip === true || options.useFlip === undefined) : true;
   this.debug = options ? options.debug : false;
 
-  // Only start drawing after the image loads.
-  this.$img.one('load', $.proxy(this.draw, this)).each(function() {
-    if (this.complete) $(this).load();
-  });
+  this.$event = new EventEmitter();
 
-  $(window).resize($.proxy(this.delayedDraw, this));
+  // Only start drawing after the image loads.
+  this.one(this.$img, 'load', this.draw.apply(this));
+  this.one(this.$img, 'load', function(e){
+      console.log(this, e);
+        if (this.complete){
+          console.log(e);
+          if (e.dispatchEvent) {
+            var event = document.createEvent('Event');
+            event.initEvent('onload', true, true);
+            e.dispatchEvent(event);
+          } else if(e.fireEvent) {
+            e.fireEvent('onload');
+          }
+        }
+    });
+
+  window.onresize = this.delayedDraw.apply(this);
 
   if (this.debug) {
     console.log('Images', {
@@ -48,6 +73,52 @@ function GridActually(options) {
       totalWidth: this.IMAGE_WIDTH
     });
   }
+}
+
+GridActually.prototype.insertAfter = function(newNode, referenceNode) {
+    referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+}
+
+GridActually.prototype.addClass = function(el, className) {
+  if (el.classList) {
+    el.classList.add(className);
+  } else {
+    el.className += ' ' + className;
+  }
+}
+
+GridActually.prototype.removeClass = function(el, className) {
+  if (el.classList) {
+    el.classList.remove(className);
+  } else {
+    el.className = el.className.replace(new RegExp('(^|\\b)' + className.split(' ').join('|') + '(\\b|$)', 'gi'), ' ');
+  }
+}
+
+
+GridActually.prototype.addEventListener = function(el, eventName, handler) {
+  if (el.addEventListener) {
+    el.addEventListener(eventName, handler);
+  } else if(el.attachEvent) {
+    el.attachEvent('on' + eventName, function(){
+      handler.call(el);
+    });
+  }
+}
+
+GridActually.prototype.removeEventListener = function(el, eventName) {
+  if (el.removeEventListener) {
+    el.removeEventListener(eventName);
+  } else if(el.detachEvent) {
+    el.detachEvent('on' + eventName);
+  }
+}
+
+GridActually.prototype.one = function(el, eventName, handler) {
+  this.removeEventListener(el, eventName);
+  return this.addEventListener(el, eventName, function(){
+    if (handler) return handler();
+  })
 }
 
 GridActually.prototype.addAllBoxesAscending = function() {
@@ -71,15 +142,14 @@ GridActually.prototype.addBoxToCell = function(cellNumber) {
  * @param  {Number} cellNumber
  */
 GridActually.prototype.appendBox = function($boxEl, cellNumber) {
-  var $existingBox = this.$el.find('.box:nth-child(' + cellNumber + ')');
-
-  if ($existingBox.length) {
-    $existingBox.replaceWith($boxEl);
+  var $existingBox = this.$el.querySelector('.box:nth-child(' + cellNumber + ')');
+  if ($existingBox) {
+    $existingBox.outerHTML += $boxEl.outerHTML;
   } else {
-    this.$el.append($boxEl);
+    this.$el.appendChild($boxEl);
   }
 
-  var appendBoxFinal = $.proxy(this.appendBoxFinal, this, $boxEl);
+  var appendBoxFinal = this.appendBoxFinal.apply(this, [$boxEl]);
 
   window.setTimeout(appendBoxFinal, this.allAtOnce ? 0 : 700);
 };
@@ -88,6 +158,7 @@ GridActually.prototype.appendBox = function($boxEl, cellNumber) {
  * @param  {jQuery.Element} $boxEl
  */
 GridActually.prototype.appendBoxFinal = function($boxEl) {
+  console.log($boxEl);
   this.unflipBox($boxEl);
   this.boxesDrawn++;
   if (this.boxesDrawn == this.cells) {
@@ -104,9 +175,9 @@ GridActually.prototype.delayedDraw = function() {
     window.clearInterval(this.drawTimeout);
   }
 
-  this.$el.find('.box').hide();
+  this.$el.querySelector('.box').style.display = 'none';
 
-  this.drawTimeout = window.setTimeout($.proxy(this.draw, this), 300);
+  this.drawTimeout = window.setTimeout(this.draw.apply(this), 300);
 };
 
 GridActually.prototype.draw = function() {
@@ -130,41 +201,42 @@ GridActually.prototype.makeBox = function(cellNumber, imageNumber) {
     });
   }
 
-  var boxHtml = '<div class="box"><div class="images">' +
+  var boxHtml = '<div class="images">' +
                 '<div class="front"></div><div class="back"></div>' +
-                '</div></div>';
+                '</div>';
 
-  var $el = $(boxHtml);
-  $el.find('.front').css({
-    'background-image': 'url(' + this.imageUrl + ')',
+  var $el = document.createElement('div');
+  $el.innerHTML = boxHtml;
+  this.addClass($el, 'box');
+
+  var $front = $el.querySelector('.front');
+  $front.style.backgroundImage = 'url(' + this.imageUrl + ')';
     // Firefox can't set explicit axis values e.g. background-position-x
-    'background-position': '-' + (this.BOX_SIZE * imageNumber) + 'px 0'
-  });
+  $front.style.backgroundPosition = '-' + (this.BOX_SIZE * imageNumber) + 'px 0';
 
   if (this.useFlip) {
-    $el.addClass('flipped');
+    this.addClass($el, 'flipped');
   }
 
-  var sizeCss = {
-    'width': this.BOX_SIZE + 'px',
-    'height': this.BOX_SIZE + 'px'
-  };
-
-  $el.css(sizeCss).find('.front, .back').css(sizeCss);
+  $el.style.width = $el.style.height = this.BOX_SIZE + 'px';
+  var els = $el.querySelectorAll('.front, .back');
+  [].forEach.call(els, function(e){
+    e.style.width = e.style.height = this.BOX_SIZE + 'px';
+  }.bind(this));
 
   // Stagger appending, evenly.
   var animIntervalInMs = this.allAtOnce ? 0 : 5;
-  window.setTimeout($.proxy(this.appendBox, this, $el, cellNumber),
+  window.setTimeout(this.appendBox.apply(this, [$el, cellNumber]),
                     cellNumber * animIntervalInMs);
 };
 
 GridActually.prototype.setDimensions = function() {
-  this.columns = Math.ceil($(window).width()/this.BOX_SIZE);
-  this.rows = Math.ceil($(window).height()/this.BOX_SIZE);
+  this.columns = Math.ceil(window.innerWidth/this.BOX_SIZE);
+  this.rows = Math.ceil(window.innerHeight/this.BOX_SIZE);
   this.cells = (this.columns * this.rows) + 1;
 
-  this.$el.width(this.columns * this.BOX_SIZE)
-          .height(this.rows * this.BOX_SIZE);
+  this.$el.style.width = this.columns * this.BOX_SIZE;
+  this.$el.style.height = this.rows * this.BOX_SIZE;
 
   if (this.debug) {
     console.log("DIMENSIONS", {
@@ -176,25 +248,36 @@ GridActually.prototype.setDimensions = function() {
 };
 
 GridActually.prototype.setOverlay = function() {
-  this.$overlay.height(this.$el.height());
+  this.$overlay.style.height = this.$el.offsetHeight + 'px';
 };
 
 GridActually.prototype.triggerDrawComplete = function() {
-  this.$el.trigger('GridActually:draw:complete');
+  this.$event.emitEvent('GridActually:draw:complete');
 };
 
 GridActually.prototype.triggerDrawStart = function() {
-  this.$el.trigger('GridActually:draw:start');
+  this.$event.emitEvent('GridActually:draw:start');
 };
 
 /** @param  {jQuery.Element} $boxEl */
 GridActually.prototype.unflipBox = function($boxEl) {
   if (!this.useFlip) return;
-  $boxEl.removeClass('flipped');
+  $boxEl.classList.remove('flipped')
+  this.removeClass($boxEl, 'flipped');
+  $boxEl.style.className = 'box';
 };
 
 // Get things started.
-$(document).ready(function() {
-  new GridActually();
+document.addEventListener('DOMContentLoaded', function() {
+  new GridActually({
+    debug: true
+  });
 });
 
+/*!
+ * EventEmitter v4.2.11 - git.io/ee
+ * Unlicense - http://unlicense.org/
+ * Oliver Caldwell - http://oli.me.uk/
+ * @preserve
+ */
+(function(){"use strict";function t(){}function i(t,n){for(var e=t.length;e--;)if(t[e].listener===n)return e;return-1}function n(e){return function(){return this[e].apply(this,arguments)}}var e=t.prototype,r=this,s=r.EventEmitter;e.getListeners=function(n){var r,e,t=this._getEvents();if(n instanceof RegExp){r={};for(e in t)t.hasOwnProperty(e)&&n.test(e)&&(r[e]=t[e])}else r=t[n]||(t[n]=[]);return r},e.flattenListeners=function(t){var e,n=[];for(e=0;e<t.length;e+=1)n.push(t[e].listener);return n},e.getListenersAsObject=function(n){var e,t=this.getListeners(n);return t instanceof Array&&(e={},e[n]=t),e||t},e.addListener=function(r,e){var t,n=this.getListenersAsObject(r),s="object"==typeof e;for(t in n)n.hasOwnProperty(t)&&-1===i(n[t],e)&&n[t].push(s?e:{listener:e,once:!1});return this},e.on=n("addListener"),e.addOnceListener=function(e,t){return this.addListener(e,{listener:t,once:!0})},e.once=n("addOnceListener"),e.defineEvent=function(e){return this.getListeners(e),this},e.defineEvents=function(t){for(var e=0;e<t.length;e+=1)this.defineEvent(t[e]);return this},e.removeListener=function(r,s){var n,e,t=this.getListenersAsObject(r);for(e in t)t.hasOwnProperty(e)&&(n=i(t[e],s),-1!==n&&t[e].splice(n,1));return this},e.off=n("removeListener"),e.addListeners=function(e,t){return this.manipulateListeners(!1,e,t)},e.removeListeners=function(e,t){return this.manipulateListeners(!0,e,t)},e.manipulateListeners=function(r,t,i){var e,n,s=r?this.removeListener:this.addListener,o=r?this.removeListeners:this.addListeners;if("object"!=typeof t||t instanceof RegExp)for(e=i.length;e--;)s.call(this,t,i[e]);else for(e in t)t.hasOwnProperty(e)&&(n=t[e])&&("function"==typeof n?s.call(this,e,n):o.call(this,e,n));return this},e.removeEvent=function(e){var t,r=typeof e,n=this._getEvents();if("string"===r)delete n[e];else if(e instanceof RegExp)for(t in n)n.hasOwnProperty(t)&&e.test(t)&&delete n[t];else delete this._events;return this},e.removeAllListeners=n("removeEvent"),e.emitEvent=function(r,o){var e,i,t,s,n=this.getListenersAsObject(r);for(t in n)if(n.hasOwnProperty(t))for(i=n[t].length;i--;)e=n[t][i],e.once===!0&&this.removeListener(r,e.listener),s=e.listener.apply(this,o||[]),s===this._getOnceReturnValue()&&this.removeListener(r,e.listener);return this},e.trigger=n("emitEvent"),e.emit=function(e){var t=Array.prototype.slice.call(arguments,1);return this.emitEvent(e,t)},e.setOnceReturnValue=function(e){return this._onceReturnValue=e,this},e._getOnceReturnValue=function(){return this.hasOwnProperty("_onceReturnValue")?this._onceReturnValue:!0},e._getEvents=function(){return this._events||(this._events={})},t.noConflict=function(){return r.EventEmitter=s,t},"function"==typeof define&&define.amd?define(function(){return t}):"object"==typeof module&&module.exports?module.exports=t:r.EventEmitter=t}).call(this);
