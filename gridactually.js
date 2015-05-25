@@ -49,22 +49,9 @@ function GridActually(options) {
   this.$event = new EventEmitter();
 
   // Only start drawing after the image loads.
-  this.one(this.$img, 'load', this.draw.apply(this));
-  this.one(this.$img, 'load', function(e){
-      console.log(this, e);
-        if (this.complete){
-          console.log(e);
-          if (e.dispatchEvent) {
-            var event = document.createEvent('Event');
-            event.initEvent('onload', true, true);
-            e.dispatchEvent(event);
-          } else if(e.fireEvent) {
-            e.fireEvent('onload');
-          }
-        }
-    });
+  this.one(this.$img, 'load', this.draw.bind(this));
 
-  window.onresize = this.delayedDraw.apply(this);
+  window.onresize = this.delayedDraw.bind(this);
 
   if (this.debug) {
     console.log('Images', {
@@ -106,16 +93,16 @@ GridActually.prototype.addEventListener = function(el, eventName, handler) {
   }
 }
 
-GridActually.prototype.removeEventListener = function(el, eventName) {
+GridActually.prototype.removeEventListener = function(el, eventName, handler) {
   if (el.removeEventListener) {
-    el.removeEventListener(eventName);
+    el.removeEventListener(eventName, handler);
   } else if(el.detachEvent) {
-    el.detachEvent('on' + eventName);
+    el.detachEvent('on' + eventName, handler);
   }
 }
 
 GridActually.prototype.one = function(el, eventName, handler) {
-  this.removeEventListener(el, eventName);
+  this.removeEventListener(el, eventName, handler);
   return this.addEventListener(el, eventName, function(){
     if (handler) return handler();
   })
@@ -141,24 +128,24 @@ GridActually.prototype.addBoxToCell = function(cellNumber) {
  * @param  {jQuery.Element} $boxEl
  * @param  {Number} cellNumber
  */
+
 GridActually.prototype.appendBox = function($boxEl, cellNumber) {
-  var $existingBox = this.$el.querySelector('.box:nth-child(' + cellNumber + ')');
-  if ($existingBox) {
-    $existingBox.outerHTML += $boxEl.outerHTML;
+  var $existingBox = this.$el.querySelectorAll('.box:nth-child(' + cellNumber + ')');
+
+  if ($existingBox.length) {
+    $existingBox.outerHTML = $boxEl;
   } else {
     this.$el.appendChild($boxEl);
   }
 
-  var appendBoxFinal = this.appendBoxFinal.apply(this, [$boxEl]);
 
-  window.setTimeout(appendBoxFinal, this.allAtOnce ? 0 : 700);
+  window.setTimeout(this.appendBoxFinal.bind(this, $boxEl), this.allAtOnce ? 0 : 700);
 };
 
 /**
  * @param  {jQuery.Element} $boxEl
  */
 GridActually.prototype.appendBoxFinal = function($boxEl) {
-  console.log($boxEl);
   this.unflipBox($boxEl);
   this.boxesDrawn++;
   if (this.boxesDrawn == this.cells) {
@@ -177,7 +164,7 @@ GridActually.prototype.delayedDraw = function() {
 
   this.$el.querySelector('.box').style.display = 'none';
 
-  this.drawTimeout = window.setTimeout(this.draw.apply(this), 300);
+  this.drawTimeout = window.setTimeout(this.draw.bind(this), 300);
 };
 
 GridActually.prototype.draw = function() {
@@ -226,7 +213,7 @@ GridActually.prototype.makeBox = function(cellNumber, imageNumber) {
 
   // Stagger appending, evenly.
   var animIntervalInMs = this.allAtOnce ? 0 : 5;
-  window.setTimeout(this.appendBox.apply(this, [$el, cellNumber]),
+  window.setTimeout(this.appendBox.bind(this, $el, cellNumber),
                     cellNumber * animIntervalInMs);
 };
 
@@ -262,16 +249,12 @@ GridActually.prototype.triggerDrawStart = function() {
 /** @param  {jQuery.Element} $boxEl */
 GridActually.prototype.unflipBox = function($boxEl) {
   if (!this.useFlip) return;
-  $boxEl.classList.remove('flipped')
   this.removeClass($boxEl, 'flipped');
-  $boxEl.style.className = 'box';
 };
 
 // Get things started.
 document.addEventListener('DOMContentLoaded', function() {
-  new GridActually({
-    debug: true
-  });
+  new GridActually();
 });
 
 /*!
