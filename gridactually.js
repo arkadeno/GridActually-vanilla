@@ -14,7 +14,7 @@
  */
 function GridActually(options) {
   this.IMAGE_SIZE = 128; // in pixels
-  this.BOX_SIZE = 80; // in pixels
+  this.BOX_SIZE = 100; // in pixels
   this.IMAGE_WIDTH = 3456; // in pixels
 
   this.$img = document.querySelector('.gridactually-image');
@@ -30,8 +30,8 @@ function GridActually(options) {
   this.$el = document.querySelector('.gridactually');
 
   this.$overlay = document.createElement('div');
-  this.addClass(this.$overlay, 'gridactually-overlay');
   this.insertAfter(this.$overlay, this.$container);
+  this.addClass(this.$overlay, 'gridactually-overlay');
   this.$overlay = document.querySelector('.gridactually-overlay');
 
   /**
@@ -222,8 +222,8 @@ GridActually.prototype.setDimensions = function() {
   this.rows = Math.ceil(window.innerHeight/this.BOX_SIZE);
   this.cells = (this.columns * this.rows) + 1;
 
-  this.$el.style.width = this.columns * this.BOX_SIZE;
-  this.$el.style.height = this.rows * this.BOX_SIZE;
+  this.$el.style.width = this.columns * this.BOX_SIZE + 'px';
+  this.$el.style.height = this.rows * this.BOX_SIZE + 'px';
 
   if (this.debug) {
     console.log("DIMENSIONS", {
