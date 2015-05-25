@@ -7,7 +7,7 @@ Grid Actually is a dynamic, expandable, animated grid of square images using a s
 ## Changes in this fork
 - Converted to vanilla JS
 - Added EventEmitter for event support
-- Replaced grid images with 128x128px (UIfaces.com avatars)[https://github.com/SahAssar/UIfaces]
+- Replaced grid images with 128x128px (https://github.com/SahAssar/UIfaces)[UIfaces.com avatars]
 - Adjusted grid box size
 
 ## Usage
