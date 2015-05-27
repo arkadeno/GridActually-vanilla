@@ -50,7 +50,11 @@ function GridActually(options) {
 
   // Only start drawing after the image loads.
   this.one(this.$img, 'load', this.draw.bind(this));
-
+  var event = document.createEvent('Event');
+  event.initEvent('load', false, false);
+  if (this.boxesDrawn !== 0) {
+    this.$img.dispatchEvent(event);
+  }
   window.onresize = this.delayedDraw.bind(this);
 
   if (this.debug) {
